@@ -9,6 +9,7 @@ void *lock_unlock(void* m){
 	pthread_mutex_unlock(m);
 }
 
+// simple thread locking and unlocking mutex
 int main(){
 	pthread_t thread1, thread2;
 	pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;

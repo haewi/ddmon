@@ -13,6 +13,7 @@ void lock_num(int num);
 void unlock_num(int num);
 
 void *lock(){
+	// random 2 numbers from 1, 2, 3 which stands for mutex m1, m2, m3 each
 	int lock1 = rand() % 3 + 1;
 	int lock2 = 0;
 
@@ -20,15 +21,16 @@ void *lock(){
 	printf("%lu >> %d - %d\n", pthread_self(), lock1, lock2);
 
 	lock_num(lock1);
-	usleep(500);
-	lock_num(lock3);
+	usleep(500); // so that context switch can happen
+	lock_num(lock2);
 
-	usleep(500);
+	usleep(500); // also for context switch
 
 	unlock_num(lock1);
 	unlock_num(lock2);
 }
 
+// deadlock can either happen or not happen
 int main(){
 	srand(time(0x0));
 
@@ -37,10 +39,11 @@ int main(){
 	pthread_t thread1, thread2;
 	pthread_create(&thread1, NULL, lock, NULL);
 	pthread_create(&thread2, NULL, lock, NULL);
+
 	pthread_join(thread1, NULL);
 	pthread_join(thread2, NULL);
 	
-	printf("\n\n%d", errno);
+	printf("\n\n");
 
 	return 0;
 }
