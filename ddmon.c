@@ -44,8 +44,9 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 	write_s(sizeof(len), (char*)&len, ddtrace);
 	printf("ddmon - len %d\n", len);
 */
-	unsigned long int thread_id = pthread_self();
+	long thread_id = pthread_self();
 	write_s(sizeof(thread_id), (char*)&thread_id, ddtrace);
+	//write_bytes(ddtrace, &thread_id, sizeof(thread_id));
 	printf("ddmon - id %lu\n", thread_id);
 
 	if(flock(ddtrace, LOCK_UN) != 0){
@@ -117,7 +118,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 	return fd;
 }
 
-/*int write_bytes(int fd, void * a, size_t len) {
+int write_bytes(int fd, void * a, size_t len) {
     	char * s = (char *) a;
 
     	int i=0;
@@ -129,7 +130,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 
     	return i;
 }
-*/
+
 
 void write_s (size_t len, char * data, int fd) {
 	size_t s;

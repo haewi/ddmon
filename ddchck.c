@@ -20,28 +20,33 @@ int main(){
 	}
 	printf("ddchck - MADE channel\n");
 
-	/*
+	
 	int ddtrace = open(".ddtrace", O_RDONLY | O_SYNC);
 	printf("ddchck - opened channel\n");
 	if(ddtrace < 0){
 		fputs("[Error] ddchck - can't open .ddtrace\n", stderr);
 	}
-	*/
+	
 	while(1){
-		int ddtrace = open(".ddtrace", O_RDONLY | O_SYNC);
-		printf("ddchck - open ddtrace\n");
-/*
+	/*	int ddtrace = open(".ddtrace", O_RDONLY | O_SYNC);
+		printf("ddchck - open ddtrace\n");*/
+
 		int len=-1;
-		read_s(sizeof(len), (char*) &len, ddtrace);
+		/*read_s(sizeof(len), (char*) &len, ddtrace);
 		printf("ddchck - len: %d\n", len);
 	*/	
-		unsigned long int thread_id;
-		read_bytes(ddtrace, &thread_id, sizeof(thread_id));
+		long thread_id = -1;
+		//read_bytes(ddtrace, &thread_id, sizeof(thread_id));
+		read_s(sizeof(thread_id), (char*)&thread_id, ddtrace);
 		printf("ddchck - id: %lu\n", thread_id);
 
-		close(ddtrace);
-		printf("ddchck - close ddtrace\n");
+	//	close(ddtrace);
+		//printf("ddchck - close ddtrace\n");
+		if(len != -1 && thread_id != -1){
+			printf("%d %ld\n", len, thread_id);
+		}
 	}
+	close(ddtrace);
 
 
 
