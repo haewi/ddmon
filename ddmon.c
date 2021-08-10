@@ -46,21 +46,24 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 		fputs("[Error] ddmon - flock error\n", stderr);
 	fputs(" >> ddmon - flock .ddtrace\n", stdout);
 
-	int len = 1;/*
-	if(write_bytes(ddtrace, &len, sizeof(len)) != sizeof(len)){
+	int len = 1;
+	int size=-1;
+	if((size =write_bytes(ddtrace, &len, sizeof(len))) != sizeof(len)){
 		fputs("[ERROR] ddmon - writing int on channel\n", stderr);
 		close(ddtrace);
 		exit(0);
 	}
 	fputs(" >> ddmon - write int = len\n", stdout);
-	*/
+	printf("size: %d\n", size);
+	
 	unsigned long int id = pthread_self();
-	if(write_bytes(ddtrace, &id, sizeof(id)) != sizeof(id)){
+	if((size=write_bytes(ddtrace, &id, sizeof(id))) != sizeof(id)){
 		fputs("[ERROR] ddmon - writing id on channel\n", stderr);
 		close(ddtrace);
 		exit(0);
 	}
 	printf(" >> ddmon - write id = %lu\n", id);
+	printf("size: %d\n", size);
 /*	
 	if(write_bytes(ddtrace, &mutex, sizeof(mutex)) != sizeof(mutex)){
 		fputs("[ERROR] ddmon - writing lock on channel\n", stderr);

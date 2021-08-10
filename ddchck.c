@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-int read_bytes(int fd, void * a, size_t len);
+int read_bytes(int fd, void * a, int len);
 
 int main(){
 	// create .ddtrace fifo file
@@ -19,12 +19,14 @@ int main(){
 	}
 	printf("ddchck - MADE channel\n");
 
-	while(1){
-		printf("ddchck - in while loop\n");
 		int ddtrace = open(".ddtrace", O_RDONLY | O_SYNC);
 		printf("ddchck - opened channel\n");
-		if(ddtrace < 0)
+		if(ddtrace < 0){
 			fputs("[Error] ddchck - can't open .ddtrace\n", stderr);
+		}
+
+	while(1){
+		printf("ddchck - in while loop\n");
 
 		/*
 		if(flock(ddtrace, LOCK_EX) != 0)
@@ -32,22 +34,26 @@ int main(){
 		printf("ddchck - flock channel\n");
 		*/
 	
-		int len=-1;/*
-		if(read_bytes(ddtrace, &len, sizeof(len)) != sizeof(len)){
-			fputs("[ERROR] ffchck - reading int on channel]n", stderr);
+		int len=-1;
+		int size=0;
+		if((size=read_bytes(ddtrace, &len, sizeof(len))) != sizeof(len)){
+			fputs("[ERROR] ffchck - reading int on channel\n", stderr);
+			printf("sizzze: %d\n", size);
 			close(ddtrace);
 			exit(0);
 		}
 		printf("ddchck - Read int = %d\n", len);
-	*/
+		printf("size: %d\n", size);
+	
 		unsigned long int thread_id = 0;
-		if(read_bytes(ddtrace, &thread_id, sizeof(thread_id)) != sizeof(thread_id)){
+		if((size = read_bytes(ddtrace, &thread_id, sizeof(thread_id))) != sizeof(thread_id)){
 			fputs("[ERROR] ffchck - reading id on channel", stderr);
 			printf(" %d\n", errno);
 			close(ddtrace);
 			exit(0);
 		}
 		printf("ddchck - Read id = %lu\n", thread_id);
+		printf("size2: %d\n", size);
 	
 		/*
 		pthread_mutex_t *mutex = (pthread_mutex_t*) malloc(sizeof(mutex));
@@ -59,16 +65,16 @@ int main(){
 		printf("ddchck - Read lock\n");
 	*/
 		//flock(ddtrace, LOCK_UN);
-		close(ddtrace);
 	
 		printf("-----------------------------------\n");
 		printf("\t>> %d = %lu\n", len, thread_id);
 		printf("-----------------------------------\n");
 	}
 
+	close(ddtrace);
 	return 0;
 }
-
+/*
 int read_bytes(int fd, void * a, size_t len) {
     char * s = (char *) a;
     //printf("read_bytes - %lu, %lu\n", len, sizeof(s));
@@ -90,4 +96,18 @@ int read_bytes(int fd, void * a, size_t len) {
 
     //printf("read_bytes done\n");
     return i;
+}*/
+
+int read_bytes (int fd, void * a, int len) {
+	char * s = (char *) a ;
+	
+	int i ;
+	for (i = 0 ; i < len ; ) {
+		int b ;
+		b = read(fd, s + i, len - i) ;
+		if (b == 0)
+			break ;
+		i += b ;
+	}
+	return i ; 
 }
