@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 int read_bytes(int fd, void * a, int len);
+void read_s (size_t len, char * data, int fd);
 
 int main(){
 	// create .ddtrace fifo file
@@ -19,22 +20,51 @@ int main(){
 	}
 	printf("ddchck - MADE channel\n");
 
+	/*
+	int ddtrace = open(".ddtrace", O_RDONLY | O_SYNC);
+	printf("ddchck - opened channel\n");
+	if(ddtrace < 0){
+		fputs("[Error] ddchck - can't open .ddtrace\n", stderr);
+	}
+	*/
+	while(1){
 		int ddtrace = open(".ddtrace", O_RDONLY | O_SYNC);
-		printf("ddchck - opened channel\n");
-		if(ddtrace < 0){
-			fputs("[Error] ddchck - can't open .ddtrace\n", stderr);
-		}
+		printf("ddchck - open ddtrace\n");
+/*
+		int len=-1;
+		read_s(sizeof(len), (char*) &len, ddtrace);
+		printf("ddchck - len: %d\n", len);
+	*/	
+		unsigned long int thread_id;
+		read_bytes(ddtrace, &thread_id, sizeof(thread_id));
+		printf("ddchck - id: %lu\n", thread_id);
 
+		close(ddtrace);
+		printf("ddchck - close ddtrace\n");
+	}
+
+
+
+
+
+
+
+/*
 	while(1){
 		printf("ddchck - in while loop\n");
 
-		/*
+		
 		if(flock(ddtrace, LOCK_EX) != 0)
 			fputs("[ERROR] ddchck - flock error\n", stderr);
 		printf("ddchck - flock channel\n");
-		*/
+		
 	
 		int len=-1;
+		read_s(sizeof(len), (char*) &len, ddtrace);
+
+		unsigned long int thread_id = 0;
+		read_s(sizeof(thread_id), (char*)&thread_id, ddtrace);
+
 		int size=0;
 		if((size=read_bytes(ddtrace, &len, sizeof(len))) != sizeof(len)){
 			fputs("[ERROR] ffchck - reading int on channel\n", stderr);
@@ -55,7 +85,7 @@ int main(){
 		printf("ddchck - Read id = %lu\n", thread_id);
 		printf("size2: %d\n", size);
 	
-		/*
+		
 		pthread_mutex_t *mutex = (pthread_mutex_t*) malloc(sizeof(mutex));
 		if(read_bytes(ddtrace, &mutex, sizeof(mutex)) != sizeof(mutex)){
 			fputs("[ERROR] ffchck - reading on lock channel]n", stderr);
@@ -63,15 +93,15 @@ int main(){
 			exit(0);
 		}
 		printf("ddchck - Read lock\n");
-	*/
+	
 		//flock(ddtrace, LOCK_UN);
 	
 		printf("-----------------------------------\n");
 		printf("\t>> %d = %lu\n", len, thread_id);
 		printf("-----------------------------------\n");
 	}
-
-	close(ddtrace);
+*/
+	//close(ddtrace);
 	return 0;
 }
 /*
@@ -109,5 +139,14 @@ int read_bytes (int fd, void * a, int len) {
 			break ;
 		i += b ;
 	}
+
 	return i ; 
+}
+
+void read_s (size_t len, char * data, int fd) {
+	size_t s;
+	while(len > 0 && (s= read(fd, data, len)) > 0){
+		data +=s;
+		len -=s;
+	}
 }
