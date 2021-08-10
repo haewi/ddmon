@@ -12,11 +12,17 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 	if ((error = dlerror()) != 0x0)
 		exit(1);
 
+	pthread_t (*pthread_self)(void);
+	pthread_self = dlsym(RTLD_NEXT, "pthread_self");
+	if ((error = dlerror()) != 0x0)
+		exit(1);
+
 	int fd = mutex_lock(mutex);
 
 	char buf[50];
-	snprintf(buf, 50, "pthread_mutex_lock(%p)=%d\n", mutex, (int) fd);
+	snprintf(buf, 50, "%lu >> pthread_mutex_lock(%p)=%d\n", pthread_self(), mutex, (int) fd);
 	fputs(buf, stderr);
+	fputs("\n", stderr);
 
 	return fd;
 }
