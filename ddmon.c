@@ -98,9 +98,15 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex){
 	int len=0; // unlock
 	long thread_id = pthread_self();
 
-	write_bytes(ddtrace, &len, sizeof(len));
-	write_bytes(ddtrace, &thread_id, sizeof(thread_id));
-	write_bytes(ddtrace, &mutex, sizeof(mutex));
+	if(write_bytes(ddtrace, &len, sizeof(len)) != sizeof(len)){
+		perror("[Error] ddchck - write int\n");
+	}
+	if(write_bytes(ddtrace, &thread_id, sizeof(thread_id)) != sizeof(thread_id)){
+		perror("[Error] ddchck - write id\n");
+	}
+	if(write_bytes(ddtrace, &mutex, sizeof(mutex)) != sizeof(mutex)){
+		perror("[Error] ddchck - write mutex\n");
+	}
 
 	printf("\tddmon - int: %d - id: %lu - lock: %p\n", len, thread_id, mutex);
 
