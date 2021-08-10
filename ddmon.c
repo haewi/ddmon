@@ -16,20 +16,22 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 
 	// function pointer for pthread_mutex_lock()
 	int (*mutex_lock)(pthread_mutex_t *mutex);
+	pthread_t (*pthread_self)(void);
+
 	char *error;
 	
 	mutex_lock = dlsym(RTLD_NEXT, "pthread_mutex_lock");
-	if ((error = dlerror()) != 0x0)
+	if ((error = dlerror()) != 0x0) {
 		exit(1);
+	}
 
 	// function pointer for pthread_self()
-	pthread_t (*pthread_self)(void);
 	pthread_self = dlsym(RTLD_NEXT, "pthread_self");
-	if ((error = dlerror()) != 0x0)
+	if ((error = dlerror()) != 0x0) {
 		exit(1);
+	}
 
-	
-
+	printf("thread_id: %lu\tmutex: %p\n", pthread_self(), mutex);
 
 	/* ----------CHANNEL---------- */
 
@@ -38,16 +40,18 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 		fputs("[Error] ddmon - can't open .ddtrace\n", stderr);
 	if(flock(ddtrace, LOCK_EX) != 0)
 		fputs("[Error] ddmon - flock error\n", stderr);
-	fputs(" >> ddmon - open & flock .ddtrace\n", stdout);
-/*
+	printf(" >> ddmon - open & flock .ddtrace\n");
+
+	/* ---------- Write ----------*/
 	int len = 1;
-	write_s(sizeof(len), (char*)&len, ddtrace);
-	printf("ddmon - len %d\n", len);
-*/
 	long thread_id = pthread_self();
-	write_s(sizeof(thread_id), (char*)&thread_id, ddtrace);
-	//write_bytes(ddtrace, &thread_id, sizeof(thread_id));
-	printf("ddmon - id %lu\n", thread_id);
+
+	//write_s(sizeof(len), (char*)&len, ddtrace);
+	write_bytes(ddtrace, &len, sizeof(len));
+
+	//write_s(sizeof(thread_id), (char*)&thread_id, ddtrace);
+	write_bytes(ddtrace, &thread_id, sizeof(thread_id));
+	printf("ddmon - lock: %d - id: %lu - \n", len, thread_id);
 
 	if(flock(ddtrace, LOCK_UN) != 0){
 		fputs("[Error] ddmon - unflock error\n", stderr);
@@ -55,15 +59,8 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 	close(ddtrace);
 	printf(" >> ddmon - close & unflock .ddtrace\n");
 
+	return mutex_lock(mutex);
 
-	// function return value
-	int fd = mutex_lock(mutex);
-
-	// print thread id, mutex address, function return value
-	char buf[50];
-	snprintf(buf, 50, "%lu >> pthread_mutex_lock(%p)=%d\n", pthread_self(), mutex, (int) fd);
-	fputs(buf, stderr);
-	fputs("\n", stderr);
 
 
 
@@ -115,7 +112,6 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 	flock(ddtrace, LOCK_UN);
 	close(ddtrace);
 	*/
-	return fd;
 }
 
 int write_bytes(int fd, void * a, size_t len) {
