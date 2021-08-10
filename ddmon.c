@@ -10,7 +10,6 @@
 #include <unistd.h>
 
 int write_bytes(int fd, void * a, size_t len);
-void write_s (size_t len, char * data, int fd);
 
 int pthread_mutex_lock(pthread_mutex_t *mutex){
 
@@ -43,15 +42,20 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 	printf(" >> ddmon - open & flock .ddtrace\n");
 
 	/* ---------- Write ----------*/
-	int len = 1;
+	int len = 1; // lock
 	long thread_id = pthread_self();
 
-	//write_s(sizeof(len), (char*)&len, ddtrace);
-	write_bytes(ddtrace, &len, sizeof(len));
+	if(write_bytes(ddtrace, &len, sizeof(len)) != sizeof(len)){
+		perror("[Error] ddchck - write int\n");
+	}
+	if(write_bytes(ddtrace, &thread_id, sizeof(thread_id)) != sizeof(thread_id)){
+		perror("[Error] ddchck - write id\n");
+	}
+	if(write_bytes(ddtrace, &mutex, sizeof(mutex)) != sizeof(mutex)){
+		perror("[Error] ddchck - write mutex\n");
+	}
 
-	//write_s(sizeof(thread_id), (char*)&thread_id, ddtrace);
-	write_bytes(ddtrace, &thread_id, sizeof(thread_id));
-	printf("ddmon - lock: %d - id: %lu - \n", len, thread_id);
+	printf("\tddmon - int: %d - id: %lu - lock: %p\n", len, thread_id, mutex);
 
 	if(flock(ddtrace, LOCK_UN) != 0){
 		fputs("[Error] ddmon - unflock error\n", stderr);
@@ -61,57 +65,52 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 
 	return mutex_lock(mutex);
 
+}
 
+int pthread_mutex_unlock(pthread_mutex_t *mutex){
+	// function pointer
+	int (*mutex_unlock)(pthread_mutex_t *mutex);
+	pthread_t (*pthread_self)(void);
 
+	char * error;
 
-
-
-
-
-
-
-
-
-
-
-
-	
-	/*
-	int len = 1;
-	write_s(sizeof(len), (char*)&len, ddtrace);
-
-	unsigned long int id = pthread_self();
-	write_s(sizeof(id), (char*)&id, ddtrace);
-	
-	int size=-1;
-	if((size =write_bytes(ddtrace, &len, sizeof(len))) != sizeof(len)){
-		fputs("[ERROR] ddmon - writing int on channel\n", stderr);
-		close(ddtrace);
-		exit(0);
+	// call original function
+	mutex_unlock = dlsym(RTLD_NEXT, "pthread_mutex_unlock");
+	if((error = dlerror()) != 0x0){
+		exit(1);
 	}
-	fputs(" >> ddmon - write int = len\n", stdout);
-	printf("size: %d\n", size);
-	
-	unsigned long int id = pthread_self();
-	if((size=write_bytes(ddtrace, &id, sizeof(id))) != sizeof(id)){
-		fputs("[ERROR] ddmon - writing id on channel\n", stderr);
-		close(ddtrace);
-		exit(0);
-	}
-	printf(" >> ddmon - write id = %lu\n", id);
-	printf("size: %d\n", size);
-	
-	
-	if(write_bytes(ddtrace, &mutex, sizeof(mutex)) != sizeof(mutex)){
-		fputs("[ERROR] ddmon - writing lock on channel\n", stderr);
-		close(ddtrace);
-		exit(0);
-	}
-	fputs(" >> ddmon - write lock = %p\n", stdout, mutex);
 
-	flock(ddtrace, LOCK_UN);
+	pthread_self = dlsym(RTLD_NEXT, "pthread_self");
+	if((error = dlerror()) != 0x0){
+		exit(1);
+	}
+	
+	/* ----------CHANNEL---------- */
+	
+	int ddtrace = open(".ddtrace", O_WRONLY | O_SYNC);
+	if(ddtrace < 0)
+		fputs("[Error] ddmon - can't open .ddtrace\n", stderr);
+	if(flock(ddtrace, LOCK_EX) != 0)
+		fputs("[Error] ddmon - flock error\n", stderr);
+	printf(" >> ddmon - open & flock .ddtrace\n");
+
+	/* ---------- Write ----------*/
+	int len=0; // unlock
+	long thread_id = pthread_self();
+
+	write_bytes(ddtrace, &len, sizeof(len));
+	write_bytes(ddtrace, &thread_id, sizeof(thread_id));
+	write_bytes(ddtrace, &mutex, sizeof(mutex));
+
+	printf("\tddmon - int: %d - id: %lu - lock: %p\n", len, thread_id, mutex);
+
+	if(flock(ddtrace, LOCK_UN) != 0){
+		fputs("[Error] ddmon - unflock error\n", stderr);
+	}
 	close(ddtrace);
-	*/
+	printf(" >> ddmon - close & unflock .ddtrace\n");
+
+	return mutex_unlock(mutex);
 }
 
 int write_bytes(int fd, void * a, size_t len) {
@@ -128,10 +127,3 @@ int write_bytes(int fd, void * a, size_t len) {
 }
 
 
-void write_s (size_t len, char * data, int fd) {
-	size_t s;
-	while(len > 0 && (s = write(fd, data, len)) > 0){
-		data += s;
-		len -= s;
-	}
-}
