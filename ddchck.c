@@ -25,6 +25,7 @@ typedef struct Node{
 
 int read_bytes(int fd, void * a, int len);
 void init_node(node* n);
+void release_node(node* n);
 void print_graph(node ** nodes);
 
 int main(){
@@ -91,6 +92,19 @@ int main(){
 			}
 		}
 
+		// make all unknown nodes in the thread node to known
+		for(int i=NN; i< NN+TN; i++){
+			if(nodes[i] !=  0x0 && nodes[i]->thread_id == thread_id){ // find thread node
+				for(int j=0; j<NN; j++){ // for all nodes the thread node is  pointing
+					if(nodes[i]->edges[j] != 0x0){
+						nodes[i]->edges[j]->thread_id = thread_id;
+					}
+				}
+				break;
+			}
+		}
+
+
 
 
 		/*
@@ -111,16 +125,6 @@ int main(){
 			for(int i=0; i<NN+TN; i++){ 
 				if(nodes[i] != 0x0 && nodes[i]->mutex == mutex){ // if found node
 					found=i; // found the node
-					/*for(int j=0; j<NN; j++) { // for all nodes,
-						if(nodes[j]->thread_id == thread_id && i != j) { // with the same thread id,
-							for(int k=0; k<9; k++){
-								if(nodes[j]->edges[k] == 0x0){ // add edge = same thread id node -> found node
-									nodes[j]->edges[k] = nodes[i];
-								}
-								break;
-							}
-						}
-					}*/
 					break;
 				}
 			}
@@ -141,16 +145,6 @@ int main(){
 						nodes[i] = tmp;
 						found = i;
 						printf("added node on nodes[%d]\n", i);
-						/*for(int j=0; j<NN; j++){ // for all nodes
-							if(nodes[j]->thread_id == thread_id && i != j) { // with the same thread id
-								for(int k=0; k<9; k++){
-									if(nodes[j]->edges[k] == 0x0) { // add edge
-									       nodes[j]->edges[k] = nodes[i];
-									}
-									break;
-								}
-							}
-						}*/
 						break;
 					}
 				}
@@ -162,7 +156,6 @@ int main(){
 			// add edges
 			printf("\n>>> add edges\n");
 			for(int i=0; i < NN+TN ; i++){ // for all nodes
-				//printf("i=%d in for loop\n", i);
 				if(nodes[i] == 0x0 || i == found) {
 					continue;
 				}
@@ -184,6 +177,45 @@ int main(){
 		} // lock executed
 		else { // unlock executed
 			printf("> unlock executed\n");
+			/*
+			   1. find node with the same mutex info
+			   2. delete edges from them (from mutex & thread nodes)
+			   3. find whether there is a node that points to the node
+			   	3-1) if there is one, make the thread_id to unknown
+				3-2) if there is none, free all memory and delete node
+
+			 */
+
+			// 1.
+			int found=-1;
+			for(int i=0; i< NN; i++){
+				if(nodes[i]!=0x0 && nodes[i]->mutex == mutex){ // find node with the same mutex info
+					found = i;
+					break;
+				}
+			}
+			if(found == -1){
+				perror("[ERROR] ddchck - trying to unlock not held lock\n");
+				exit(1);
+			}
+
+			// 2.
+			for(int i=0; i< NN+TN; i++){
+				if(nodes[i]!=0x0){
+					for(int j=0; j<NN; j++){
+						if(nodes[i]->edges[j] == nodes[found]){
+							free(nodes[i]->edges[j]);
+							break;
+						}
+					}
+				}
+			}
+
+			// 3.
+	/*		for(int i=NN; i< NN+TN; i++){
+				if(nodes[i] != 0x0 && nodes[i]->thread_id == thread_id){ // found the thread node
+*/
+
 		}
 		//printf("done\n");
 
@@ -220,6 +252,14 @@ void init_node(node* n) {
 	for(int i=0; i<NN; i++){
 		n->edges[i] = 0x0;
 	}
+}
+
+void release_node(node* n){
+	for(int i=0; i<NN; i++){
+		free(n->edges[i]);
+	}
+	free(n->edges);
+	free(n);
 }
 
 void print_graph(node ** nodes) {
