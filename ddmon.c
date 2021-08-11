@@ -40,7 +40,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 		fputs("[Error] ddmon - can't open .ddtrace\n", stderr);
 	if(flock(ddtrace, LOCK_EX) != 0)
 		fputs("[Error] ddmon - flock error\n", stderr);
-	printf(" >> ddmon - open & flock .ddtrace\n");
+	//printf(" >> ddmon - open & flock .ddtrace\n");
 
 	/* ---------- Write ----------*/
 	int len = 1; // lock
@@ -62,7 +62,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 		fputs("[Error] ddmon - unflock error\n", stderr);
 	}
 	close(ddtrace);
-	printf(" >> ddmon - close & unflock .ddtrace\n");
+	//printf(" >> ddmon - close & unflock .ddtrace\n");
 
 	return mutex_lock(mutex);
 
