@@ -179,9 +179,9 @@ int main(){
 			printf("> unlock executed\n");
 			/*
 			   1. find node with the same mutex info
-			   2. delete edges from them (from mutex & thread nodes)
+			   2. delete edges from the same thread id nodes (from mutex & thread nodes)
 			   3. find whether there is a node that points to the node
-			   	3-1) if there is one, make the thread_id to unknown
+			   	3-1) if there is one, make the thread_id to unknown & delete edges in node
 				3-2) if there is none, free all memory and delete node
 
 			 */
@@ -200,21 +200,52 @@ int main(){
 			}
 
 			// 2.
+
+			printf("-----------------delete same thread edges-------------------\n");
 			for(int i=0; i< NN+TN; i++){
-				if(nodes[i]!=0x0){
+				if(nodes[i]!=0x0 && nodes[i]->thread_id == thread_id){
+					printf("i : %d\n", i);
 					for(int j=0; j<NN; j++){
+						printf("nodes[found]->mutex: %p - id: %lu\n", nodes[found]->mutex, nodes[found]->thread_id);
 						if(nodes[i]->edges[j] == nodes[found]){
 							free(nodes[i]->edges[j]);
+							nodes[i]->edges[j] = NULL;
 							break;
 						}
 					}
 				}
 			}
+			printf(" <> nodes[found]->mutex: %p\n", nodes[found]->mutex);
 
 			// 3.
-	/*		for(int i=NN; i< NN+TN; i++){
-				if(nodes[i] != 0x0 && nodes[i]->thread_id == thread_id){ // found the thread node
-*/
+			int exist = 0;
+			for(int i=NN; i< NN+TN; i++){
+				if(nodes[i] != 0x0){ // other thread id nodes
+					for(int j=0; j<NN; j++){
+						if(nodes[i]->edges[j] != 0x0 && nodes[i]->edges[j] == nodes[found]){
+							exist = 1; // edge exists
+							break;
+						}
+					}
+				}
+			}
+			if(exist == 0){
+				release_node(nodes[found]);
+			}
+			else{
+				printf("edges exists\n");
+				nodes[found]->thread_id = -1;
+				for(int i=0; i<NN; i++){
+					if(nodes[found]->edges[i] != 0x0){
+						free(nodes[found]->edges[i]);
+						nodes[found]->edges[i] = NULL;
+					}
+				}
+			}
+			print_graph(nodes);
+
+
+
 
 		}
 		//printf("done\n");
@@ -260,6 +291,7 @@ void release_node(node* n){
 	}
 	free(n->edges);
 	free(n);
+	n = NULL;
 }
 
 void print_graph(node ** nodes) {
