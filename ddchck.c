@@ -7,7 +7,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#define NN 10 // maximum node number
+#define NN 10 // maximum mutex number
+#define TN 10 // maximum thread number
 
 typedef enum {
 	White, Gray, Black
@@ -36,17 +37,17 @@ int main(){
 			exit(1);
 		}
 	}
-	printf("ddchck - MADE channel\n");
+	//printf("ddchck - MADE channel\n");
 
 	int ddtrace = open(".ddtrace", O_RDWR | O_SYNC);
-	printf("ddchck - opened channel\n");
+	//printf("ddchck - opened channel\n");
 	if(ddtrace < 0){
 		fputs("[Error] ddchck - can't open .ddtrace\n", stderr);
 	}
 
 	// init nodes (if mutex not held, it will be 0x0)
-	node ** nodes = (node**) malloc(10*sizeof(node*));
-	for(int i =0 ; i< NN; i++){
+	node ** nodes = (node**) malloc((NN + TN)*sizeof(node*));
+	for(int i = 0 ; i< NN+TN; i++){ // nodes for mutex
 		nodes[i] = 0x0;
 	}
 	
@@ -67,7 +68,32 @@ int main(){
 			perror("[Error] ddchck - read mutex\n");
 		}
 
-		printf("< %d - %ld - %p\n >", len, thread_id, mutex);
+		printf("| %d - %ld - %p |\n", len, thread_id, mutex);
+
+		// make thread nodes
+		int none = -1;
+		for(int i=NN; i< NN+TN; i++){
+			if(nodes[i] != 0x0 && nodes[i]->thread_id == thread_id){ // thread node already exist
+				printf("found = nodes[%d]->thread_id = %lu\n", i, nodes[i]->thread_id);
+				none = i;
+				break;
+			}
+		}
+		if(none == -1){ // no thread node
+			for(int i=NN; i < NN+TN; i++){ // for all thread nodes
+				if(nodes[i] == 0x0) { // find empty thread node
+					printf("found empty thread node: %d\n", i);
+					nodes[i] = (node*) malloc(sizeof(node));
+					init_node(nodes[i]);
+					nodes[i]->thread_id = thread_id; // and fill it
+					break;
+				}
+			}
+		}
+		printf("thread node done\n");
+
+		print_graph(nodes);
+
 
 		/*
 		 RULE
@@ -81,10 +107,10 @@ int main(){
 				   - not found -> add node & add edges = nodes with the same thread id -> made node
 				2. adjust thread id of all nodes with the same thread id
 			 */
-			printf("lock executed\n");
+			printf("> lock executed\n");
 
 			int found=-1;
-			for(int i=0; i<NN; i++){ 
+			for(int i=0; i<NN+TN; i++){ 
 				if(nodes[i] != 0x0 && nodes[i]->mutex == mutex){ // if found node
 					found=i; // found the node
 					/*for(int j=0; j<NN; j++) { // for all nodes,
@@ -102,23 +128,22 @@ int main(){
 			}
 
 			if(found == -1){ // no node with the same mutex info.
-				printf("no node\n");
+				printf("\n>> no node\n");
 
 				// make new node
-				node tmp;
-				init_node(&tmp);
-				tmp.mutex = mutex;
-				tmp.thread_id = thread_id;
+				node *tmp = (node*) malloc(sizeof(node));
 				printf("made node\n");
+				init_node(tmp);
+				tmp->mutex = mutex;
+				tmp->thread_id = thread_id;
 
 				// add node to nodes variable
 				for(int i=0; i<NN; i++){
-					printf("in for loop\n");
 					if(nodes[i] == 0x0) { // a empty spot in the nodes variable
 						printf("node[%d] = 0x0\n", i);
-						nodes[i] = &tmp;
+						nodes[i] = tmp;
 						found = i;
-						printf("added node\n");
+						printf("added node on nodes[%d]\n", i);
 						/*for(int j=0; j<NN; j++){ // for all nodes
 							if(nodes[j]->thread_id == thread_id && i != j) { // with the same thread id
 								for(int k=0; k<9; k++){
@@ -134,21 +159,24 @@ int main(){
 				}
 			}
 			else {
-				printf(" found node\n");
+				printf("\n>> found node\n");
 			}
 
 			// add edges
-			printf("\nbefore adding edges\n");
-			for(int i=0; i<NN; i++){ // for all nodes
-				printf("in for loop\n");
-				if(nodes[i] == 0x0 || i == found) continue;
-				printf("nodes[%d] not Null\n", i);
+			printf("\n>>> add edges\n");
+			for(int i=0; i < NN+TN ; i++){ // for all nodes
+				//printf("i=%d in for loop\n", i);
+				if(nodes[i] == 0x0 || i == found) {
+					continue;
+				}
+				// existing node & not itself
+
 				if(nodes[i]->thread_id == thread_id && i != found){ // with the same thread id
 					printf("nodes[%d]->thread_id = %lu\n", i, nodes[i]->thread_id);
-					for(int j=0; j<9; j++){
+					for(int j=0; j<NN; j++){
 						if(nodes[i]->edges[j] == 0x0){ // add edge
-							printf("nodes[%d]->edges[%d]", i, j);
-							nodes[i]->edges[j] = nodes[i];
+							printf("nodes[%d]->edges[%d]\n", i, j);
+							nodes[i]->edges[j] = nodes[found];
 						}
 						break;
 					}
@@ -158,7 +186,7 @@ int main(){
 			
 		} // lock executed
 		else { // unlock executed
-			printf("unlock executed\n");
+			printf("> unlock executed\n");
 		}
 		printf("done\n");
 
@@ -192,27 +220,46 @@ void init_node(node* n) {
 	n->col = White;
 
 	n->edges = (node**) malloc(9*sizeof(node*));
-	for(int i=0; i<9; i++){
+	for(int i=0; i<NN; i++){
 		n->edges[i] = 0x0;
 	}
 }
 
 void print_graph(node ** nodes) {
-	printf("nodes' address\n");
+	printf("\n|----------------------------[node info.]------------------------------|\n|\n");
+	printf("|\tnodes' address - [");
 	for(int i=0; i<NN; i++){
 		if(nodes[i] != 0x0){
 			printf("%p ", nodes[i]);
 		}
 	}
-	printf("\n\n\tnode info.\n");
+	printf("]\n|\n");
+	printf("|\n|mutex nodes info.\n|\n");
 	for(int i=0; i<NN; i++){
-		printf("----- node= mutex: %p - id: %lu -----\n", nodes[i]->mutex, nodes[i]->thread_id);
-		for(int j=0; j<9; j++){
+		if(nodes[i] == 0x0) continue;
+		printf("| - node[%d]=%p -> mutex: %p - id: %lu\n", i, nodes[i], nodes[i]->mutex, nodes[i]->thread_id);
+		for(int j=0; j<NN; j++){
 			if(nodes[i]->edges[j] != 0x0){
-				printf("%p\n", nodes[i]->edges[j]);
+				printf("|   nodes[%d]->edges[%d] = %p\n", i, j, nodes[i]->edges[j]);
 			}
 		}
+		printf("| \t --- edge printing done\n|\n");
 	}
+	printf("|thread nodes info. \n|\n");
+	for(int i=NN; i< NN+TN; i++){
+		if(nodes[i] == 0x0) continue;
+		
+		printf("in if statement\n");
+		printf("| - node[%d]=%p -> id: %lu\n", i, nodes[i], nodes[i]->thread_id);
+		for(int j=0; j<NN; j++){
+			if(nodes[i]->edges[j] != 0x0){
+				printf("|   nodes[%d]->edges[%d] = %p\n", i, j, nodes[i]->edges[j]);
+			}
+		}
+		printf("| \t --- edge printing done\n|\n");
+	}
+	
+	printf("|-----------------------------------------------------------------------|\n\n");
 }
 
 
