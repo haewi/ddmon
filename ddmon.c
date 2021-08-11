@@ -31,7 +31,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 		exit(1);
 	}
 
-	printf("thread_id: %lu\tmutex: %p\n", pthread_self(), mutex);
+	//printf("thread_id: %lu\tmutex: %p\n", pthread_self(), mutex);
 
 	/* ----------CHANNEL---------- */
 
@@ -58,13 +58,13 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 
 	printf("\tddmon - int: %d - id: %lu - lock: %p\n", len, thread_id, mutex);
 
-	int fd = mutex_lock(mutex);
-
 	if(flock(ddtrace, LOCK_UN) != 0){
 		fputs("[Error] ddmon - unflock error\n", stderr);
 	}
 	close(ddtrace);
 	//printf(" >> ddmon - close & unflock .ddtrace\n");
+
+	int fd = mutex_lock(mutex);
 
 	return fd;
 

@@ -68,13 +68,13 @@ int main(){
 			perror("[Error] ddchck - read mutex\n");
 		}
 
-		printf("| %d - %ld - %p |\n", len, thread_id, mutex);
+		printf("\t| %d - %ld - %p |\n\n", len, thread_id, mutex);
 
 		// make thread nodes
 		int none = -1;
 		for(int i=NN; i< NN+TN; i++){
 			if(nodes[i] != 0x0 && nodes[i]->thread_id == thread_id){ // thread node already exist
-				printf("found = nodes[%d]->thread_id = %lu\n", i, nodes[i]->thread_id);
+				//printf("found = nodes[%d]->thread_id = %lu\n", i, nodes[i]->thread_id);
 				none = i;
 				break;
 			}
@@ -90,9 +90,7 @@ int main(){
 				}
 			}
 		}
-		printf("thread node done\n");
 
-		print_graph(nodes);
 
 
 		/*
@@ -132,7 +130,6 @@ int main(){
 
 				// make new node
 				node *tmp = (node*) malloc(sizeof(node));
-				printf("made node\n");
 				init_node(tmp);
 				tmp->mutex = mutex;
 				tmp->thread_id = thread_id;
@@ -140,7 +137,7 @@ int main(){
 				// add node to nodes variable
 				for(int i=0; i<NN; i++){
 					if(nodes[i] == 0x0) { // a empty spot in the nodes variable
-						printf("node[%d] = 0x0\n", i);
+						//printf("node[%d] = 0x0\n", i);
 						nodes[i] = tmp;
 						found = i;
 						printf("added node on nodes[%d]\n", i);
@@ -177,8 +174,8 @@ int main(){
 						if(nodes[i]->edges[j] == 0x0){ // add edge
 							printf("nodes[%d]->edges[%d]\n", i, j);
 							nodes[i]->edges[j] = nodes[found];
+							break;
 						}
-						break;
 					}
 				}
 			}
@@ -188,7 +185,7 @@ int main(){
 		else { // unlock executed
 			printf("> unlock executed\n");
 		}
-		printf("done\n");
+		//printf("done\n");
 
 		print_graph(nodes);
 
@@ -219,7 +216,7 @@ void init_node(node* n) {
 	n->thread_id = -1;
 	n->col = White;
 
-	n->edges = (node**) malloc(9*sizeof(node*));
+	n->edges = (node**) malloc(NN*sizeof(node*));
 	for(int i=0; i<NN; i++){
 		n->edges[i] = 0x0;
 	}
@@ -234,7 +231,7 @@ void print_graph(node ** nodes) {
 		}
 	}
 	printf("]\n|\n");
-	printf("|\n|mutex nodes info.\n|\n");
+	printf("|\n| --- mutex nodes info. ---\n|\n");
 	for(int i=0; i<NN; i++){
 		if(nodes[i] == 0x0) continue;
 		printf("| - node[%d]=%p -> mutex: %p - id: %lu\n", i, nodes[i], nodes[i]->mutex, nodes[i]->thread_id);
@@ -245,11 +242,10 @@ void print_graph(node ** nodes) {
 		}
 		printf("| \t --- edge printing done\n|\n");
 	}
-	printf("|thread nodes info. \n|\n");
+	printf("| --- thread nodes info. --- \n|\n");
 	for(int i=NN; i< NN+TN; i++){
 		if(nodes[i] == 0x0) continue;
 		
-		printf("in if statement\n");
 		printf("| - node[%d]=%p -> id: %lu\n", i, nodes[i], nodes[i]->thread_id);
 		for(int j=0; j<NN; j++){
 			if(nodes[i]->edges[j] != 0x0){
