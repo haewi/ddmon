@@ -29,6 +29,7 @@ void release_node(node* n);
 void print_graph(node ** nodes);
 void dfs(node ** nodes);
 void dfs_visit(node ** nodes, node * n, int * cycle);
+void print_cycle(node ** nodes);
 
 int main(){
 
@@ -263,7 +264,6 @@ int main(){
 
 		printf(" -------------------------- cycle detecting... --------------------------\n");
 		dfs(nodes);
-		printf("-------------------------------------------------------------------------\n\n");
 
 
 	}
@@ -354,20 +354,22 @@ void dfs(node ** nodes){
 
 	// start dfs_visit
 	int cycle=0;
-	for(int i=0; i<NN; i++){
+	for(int i=0; i<NN+TN; i++){
 		if(nodes[i] == 0x0) continue;
 		if(nodes[i]->col == White){
 			dfs_visit(nodes, nodes[i], &cycle);
 		}
 		if(cycle == 1){
-			printf("\t\t-----------[CYCLE!!!!]-------------\n");
+			printf("\n\t\t-----------[CYCLE!!!!]-------------\n");
+			print_cycle(nodes);
+			printf("\n-------------------------------------------------------------------------\n\n");
 			exit(0);
 			return;
 		}
 	}
 
-	printf("\t\t\tno cycle\n\n");
-
+	printf("\n\t\t\t\tno cycle\n\n");
+	printf("-------------------------------------------------------------------------\n\n");
 }
 
 /*
@@ -380,25 +382,38 @@ void dfs(node ** nodes){
    3. make color Black
 */
 void dfs_visit(node ** nodes, node * n, int * cycle){
+	//printf("dfs_visit - %p\n", n);
 	n->col = Gray;
 	
-	for(int i=0; i<NN; i++){
+	for(int i=0; i< NN; i++){
 		if(n->edges[i] == 0x0) continue;
-		printf("n->edges[%d]: %p\n", i, n->edges[i]);
+		//printf("n->edges[%d]: %p\n", i, n->edges[i]);
 		if(n->edges[i]->col == Gray){
-			printf("cycle: %p\n", n);
+			//printf("cycle: %p\n", n);
 			*cycle = 1;
+			
 			return;
 		}
 		if(n->edges[i]->col == White){
 			dfs_visit(nodes, n->edges[i], cycle);
 		}
 	}
+	if(*cycle == 1){
+		return;
+	}
 
 	n->col = Black;
 }
 
-
+void print_cycle(node ** nodes){
+	printf("\t\t-- Threads related to the Deadlock --\n");
+	for(int i=0; i<NN; i++){
+		if(nodes[i] == 0x0) continue;
+		if(nodes[i]->col == Gray){
+			printf("\tthread id: %lu - mutex address: %p color: %d\n", nodes[i]->thread_id, nodes[i]->mutex, nodes[i]->col);
+		}
+	}
+}
 
 
 
