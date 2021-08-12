@@ -6,6 +6,7 @@
 #include <sys/file.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 
 #define NN 10 // maximum mutex number
 #define TN 10 // maximum thread number
@@ -31,7 +32,7 @@ void dfs(node ** nodes);
 void dfs_visit(node ** nodes, node * n, int * cycle);
 void print_cycle(node ** nodes);
 
-int main(){
+int main(int argc, char *argv[]){
 
 	/* ---------- Make & Open FIFO ----------*/	
 	// create .ddtrace fifo file
@@ -47,6 +48,32 @@ int main(){
 	//printf("ddchck - opened channel\n");
 	if(ddtrace < 0){
 		fputs("[Error] ddchck - can't open .ddtrace\n", stderr);
+	}
+
+	/* ---------- parse commandline argument ----------*/
+	if(argc != 2) {
+		perror("[Error] no file input\n");
+		exit(1);
+	}
+	char * first = "LD_PRELOAD=\"./ddmon.so\" ./";
+	char * command = (char*) malloc((strlen(argv[1]) + strlen(first)) * sizeof(char));
+	strcat(command, first);
+	strcat(command, argv[1]);
+
+	pid_t child = fork();
+	if(child == 0){
+		//char* myargs[3];
+		//myargs[0] = strdup("LD_PRELOAD=\"ddmon.so\"");
+		//myargs[1] = strdup(argv[1]);
+		//myargs[2] = NULL;
+		//if(execl(command, "", NULL) == -1){
+		//	perror("[Error] ddchck - execl\n");
+		//	exit(1);
+		//}
+		//execvp(myargs[0], myargs);
+		if(system(command) == -1){
+			perror("system(command) error\n");
+		}
 	}
 
 	// init nodes (if mutex not held, it will be 0x0)
@@ -165,10 +192,10 @@ int main(){
 				// existing node & not itself
 
 				if(nodes[i]->thread_id == thread_id && i != found){ // with the same thread id
-					printf("nodes[%d]->thread_id = %lu\n", i, nodes[i]->thread_id);
+					//printf("nodes[%d]->thread_id = %lu\n", i, nodes[i]->thread_id);
 					for(int j=0; j<NN; j++){
 						if(nodes[i]->edges[j] == 0x0){ // add edge
-							printf("nodes[%d]->edges[%d]\n", i, j);
+							//printf("nodes[%d]->edges[%d]\n", i, j);
 							nodes[i]->edges[j] = nodes[found];
 							break;
 						}
@@ -410,7 +437,7 @@ void print_cycle(node ** nodes){
 	for(int i=0; i<NN; i++){
 		if(nodes[i] == 0x0) continue;
 		if(nodes[i]->col == Gray){
-			printf("\tthread id: %lu - mutex address: %p color: %d\n", nodes[i]->thread_id, nodes[i]->mutex, nodes[i]->col);
+			printf("\tthread id: %lu - mutex address: %p\n", nodes[i]->thread_id, nodes[i]->mutex);
 		}
 	}
 }

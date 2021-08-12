@@ -47,16 +47,16 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 	long thread_id = pthread_self();
 
 	if(write_bytes(ddtrace, &len, sizeof(len)) != sizeof(len)){
-		perror("[Error] ddchck - write int\n");
+		perror("[Error] ddmon - write int\n");
 	}
 	if(write_bytes(ddtrace, &thread_id, sizeof(thread_id)) != sizeof(thread_id)){
-		perror("[Error] ddchck - write id\n");
+		perror("[Error] ddmon - write id\n");
 	}
 	if(write_bytes(ddtrace, &mutex, sizeof(mutex)) != sizeof(mutex)){
-		perror("[Error] ddchck - write mutex\n");
+		perror("[Error] ddmon - write mutex\n");
 	}
 
-	printf("\tddmon - int: %d - id: %lu - lock: %p\n", len, thread_id, mutex);
+	//printf("\tddmon - int: %d - id: %lu - lock: %p\n", len, thread_id, mutex);
 
 	if(flock(ddtrace, LOCK_UN) != 0){
 		fputs("[Error] ddmon - unflock error\n", stderr);
@@ -111,7 +111,7 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex){
 		perror("[Error] ddchck - write mutex\n");
 	}
 
-	printf("\tddmon - int: %d - id: %lu - lock: %p\n", len, thread_id, mutex);
+	//printf("\tddmon - int: %d - id: %lu - lock: %p\n", len, thread_id, mutex);
 
 	int fd = mutex_unlock(mutex);
 
