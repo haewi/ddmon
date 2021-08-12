@@ -16,7 +16,7 @@ typedef enum {
 
 typedef struct Node{
 	pthread_mutex_t * mutex;
-	long thread_id; // -1 means 'unknown'
+	long thread_id; // 0 means 'unknown'
 	color col;
 	struct Node ** edges;
 
@@ -144,7 +144,7 @@ int main(){
 						//printf("node[%d] = 0x0\n", i);
 						nodes[i] = tmp;
 						found = i;
-						printf("added node on nodes[%d]\n", i);
+						//printf("added node on nodes[%d]\n", i);
 						break;
 					}
 				}
@@ -189,6 +189,8 @@ int main(){
 			// 1.
 			int found=-1;
 			for(int i=0; i< NN; i++){
+				if(nodes[i] == 0x0) continue;
+				//printf("nodes[%d]->mutex: %p\n", i, nodes[i]->mutex);
 				if(nodes[i]!=0x0 && nodes[i]->mutex == mutex){ // find node with the same mutex info
 					found = i;
 					break;
@@ -198,24 +200,26 @@ int main(){
 				perror("[ERROR] ddchck - trying to unlock not held lock\n");
 				exit(1);
 			}
+			printf("found: %d\n", found);
 
 			// 2.
 
 			printf("-----------------delete same thread edges-------------------\n");
 			for(int i=0; i< NN+TN; i++){
 				if(nodes[i]!=0x0 && nodes[i]->thread_id == thread_id){
-					printf("i : %d\n", i);
 					for(int j=0; j<NN; j++){
-						printf("nodes[found]->mutex: %p - id: %lu\n", nodes[found]->mutex, nodes[found]->thread_id);
 						if(nodes[i]->edges[j] == nodes[found]){
-							free(nodes[i]->edges[j]);
-							nodes[i]->edges[j] = NULL;
+							//printf("nodes[found]: %p - mutex: %p - id: %lu\n", nodes[found], nodes[found]->mutex, nodes[found]->thread_id);
+							//printf("nodes[i]->edges[j]: %p\n", nodes[i]->edges[j]);
+							//printf("nodes[found]: %p - mutex: %p - id: %lu\n", nodes[found], nodes[found]->mutex, nodes[found]->thread_id);
+							nodes[i]->edges[j] = 0x0;
 							break;
 						}
 					}
 				}
 			}
-			printf(" <> nodes[found]->mutex: %p\n", nodes[found]->mutex);
+			//nodes[found]->mutex = mutex;
+			//printf(" <> nodes[found]->mutex: %p - id: %lu\n", nodes[found]->mutex, nodes[found]->thread_id);
 
 			// 3.
 			int exist = 0;
@@ -224,29 +228,55 @@ int main(){
 					for(int j=0; j<NN; j++){
 						if(nodes[i]->edges[j] != 0x0 && nodes[i]->edges[j] == nodes[found]){
 							exist = 1; // edge exists
+							//printf("node[%d]->thread_id = %lu\n", i, nodes[i]->thread_id);
 							break;
 						}
 					}
 				}
 			}
+			// imsee
+			printf("imsee\n");
+			for(int i=0; i<NN; i++){
+				if(nodes[i] != 0x0){
+					printf("nodes[%d]->mutex: %p\n", i, nodes[i]->mutex);
+				}
+			}
+			
 			if(exist == 0){
 				release_node(nodes[found]);
-			}
-			else{
-				printf("edges exists\n");
-				nodes[found]->thread_id = -1;
+				nodes[found]=0x0;
+				
+				// imsee
+				printf("imsee\n");
 				for(int i=0; i<NN; i++){
-					if(nodes[found]->edges[i] != 0x0){
-						free(nodes[found]->edges[i]);
-						nodes[found]->edges[i] = NULL;
+					if(nodes[i] != 0x0){
+						printf("nodes[%d]->mutex: %p\n", i, nodes[i]->mutex);
 					}
 				}
 			}
-			print_graph(nodes);
-
-
-
-
+			else{
+				printf("edges exists\n");
+				//printf("nodes[found]->thread_id = %lu\n", nodes[found]->thread_id);
+				nodes[found]->thread_id = 0;
+				//printf("nodes[found]->thread_id = %lu\n", nodes[found]->thread_id);
+				for(int i=0; i<NN; i++){ // delete edges in the node
+					printf("in for loop\n");
+					if(nodes[found]->edges[i] != 0x0){
+						printf("1. nodex[%d]->edges[%d]->mutex = %p\n", found, i, nodes[found]->edges[i]->mutex);
+						//pthread_mutex_t * t = nodes[found]->edges[i]->mutex;
+						//nodes[found]->edges[i]->mutex = t;
+						nodes[found]->edges[i] = 0x0;
+						//printf("2. nodex[%d]->edges[%d]->mutex = %p\n", found, i, nodes[found]->edges[i]->mutex);
+					}
+				}
+			}
+			// imsee
+			printf("imsee\n");
+			for(int i=0; i<NN; i++){
+				if(nodes[i] != 0x0){
+					printf("nodes[%d]->mutex: %p\n", i, nodes[i]->mutex);
+				}
+			}
 		}
 		//printf("done\n");
 
@@ -276,7 +306,7 @@ int read_bytes (int fd, void * a, int len) {
 
 void init_node(node* n) {
 	n->mutex = 0x0;
-	n->thread_id = -1;
+	n->thread_id = 0;
 	n->col = White;
 
 	n->edges = (node**) malloc(NN*sizeof(node*));
@@ -286,9 +316,6 @@ void init_node(node* n) {
 }
 
 void release_node(node* n){
-	for(int i=0; i<NN; i++){
-		free(n->edges[i]);
-	}
 	free(n->edges);
 	free(n);
 	n = NULL;
