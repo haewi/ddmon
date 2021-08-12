@@ -27,6 +27,8 @@ int read_bytes(int fd, void * a, int len);
 void init_node(node* n);
 void release_node(node* n);
 void print_graph(node ** nodes);
+void dfs(node ** nodes);
+void dfs_visit(node ** nodes, node * n, int * cycle);
 
 int main(){
 
@@ -83,7 +85,7 @@ int main(){
 		if(none == -1){ // no thread node
 			for(int i=NN; i < NN+TN; i++){ // for all thread nodes
 				if(nodes[i] == 0x0) { // find empty thread node
-					printf("found empty thread node: %d\n", i);
+					//printf("found empty thread node: %d\n", i);
 					nodes[i] = (node*) malloc(sizeof(node));
 					init_node(nodes[i]);
 					nodes[i]->thread_id = thread_id; // and fill it
@@ -130,7 +132,7 @@ int main(){
 			}
 
 			if(found == -1){ // no node with the same mutex info.
-				printf("\n>> no node\n");
+				printf(">> no node\n");
 
 				// make new node
 				node *tmp = (node*) malloc(sizeof(node));
@@ -150,11 +152,11 @@ int main(){
 				}
 			}
 			else {
-				printf("\n>> found node\n");
+				printf(">> found node\n");
 			}
 
 			// add edges
-			printf("\n>>> add edges\n");
+			printf(">>> add edges\n");
 			for(int i=0; i < NN+TN ; i++){ // for all nodes
 				if(nodes[i] == 0x0 || i == found) {
 					continue;
@@ -200,7 +202,7 @@ int main(){
 				perror("[ERROR] ddchck - trying to unlock not held lock\n");
 				exit(1);
 			}
-			printf("found: %d\n", found);
+			//printf("found: %d\n", found);
 
 			// 2.
 
@@ -234,25 +236,10 @@ int main(){
 					}
 				}
 			}
-			// imsee
-			printf("imsee\n");
-			for(int i=0; i<NN; i++){
-				if(nodes[i] != 0x0){
-					printf("nodes[%d]->mutex: %p\n", i, nodes[i]->mutex);
-				}
-			}
 			
 			if(exist == 0){
 				release_node(nodes[found]);
 				nodes[found]=0x0;
-				
-				// imsee
-				printf("imsee\n");
-				for(int i=0; i<NN; i++){
-					if(nodes[i] != 0x0){
-						printf("nodes[%d]->mutex: %p\n", i, nodes[i]->mutex);
-					}
-				}
 			}
 			else{
 				printf("edges exists\n");
@@ -260,9 +247,8 @@ int main(){
 				nodes[found]->thread_id = 0;
 				//printf("nodes[found]->thread_id = %lu\n", nodes[found]->thread_id);
 				for(int i=0; i<NN; i++){ // delete edges in the node
-					printf("in for loop\n");
 					if(nodes[found]->edges[i] != 0x0){
-						printf("1. nodex[%d]->edges[%d]->mutex = %p\n", found, i, nodes[found]->edges[i]->mutex);
+						//printf("1. nodex[%d]->edges[%d]->mutex = %p\n", found, i, nodes[found]->edges[i]->mutex);
 						//pthread_mutex_t * t = nodes[found]->edges[i]->mutex;
 						//nodes[found]->edges[i]->mutex = t;
 						nodes[found]->edges[i] = 0x0;
@@ -270,17 +256,14 @@ int main(){
 					}
 				}
 			}
-			// imsee
-			printf("imsee\n");
-			for(int i=0; i<NN; i++){
-				if(nodes[i] != 0x0){
-					printf("nodes[%d]->mutex: %p\n", i, nodes[i]->mutex);
-				}
-			}
 		}
 		//printf("done\n");
 
 		print_graph(nodes);
+
+		printf(" -------------------------- cycle detecting... --------------------------\n");
+		dfs(nodes);
+		printf("-------------------------------------------------------------------------\n\n");
 
 
 	}
@@ -356,5 +339,77 @@ void print_graph(node ** nodes) {
 	
 	printf("|-----------------------------------------------------------------------|\n\n");
 }
+
+/*
+   1. make all color white
+   2. for all nodes start dfs_visit
+*/
+void dfs(node ** nodes){
+
+	// make color white
+	for(int i=0; i<NN; i++){
+		if(nodes[i] == 0x0) continue;
+		nodes[i]->col = White;
+	}
+
+	// start dfs_visit
+	int cycle=0;
+	for(int i=0; i<NN; i++){
+		if(nodes[i] == 0x0) continue;
+		if(nodes[i]->col == White){
+			dfs_visit(nodes, nodes[i], &cycle);
+		}
+		if(cycle == 1){
+			printf("\t\t-----------[CYCLE!!!!]-------------\n");
+			exit(0);
+			return;
+		}
+	}
+
+	printf("\t\t\tno cycle\n\n");
+
+}
+
+/*
+   1. make node's color Gray
+   2. for all adjacent nodes,
+   	2-1) if color is White,
+		start dfs_visit
+	2-2) if color is Gray,
+		stop dfs_visit & alert a cycle deadlock
+   3. make color Black
+*/
+void dfs_visit(node ** nodes, node * n, int * cycle){
+	n->col = Gray;
+	
+	for(int i=0; i<NN; i++){
+		if(n->edges[i] == 0x0) continue;
+		printf("n->edges[%d]: %p\n", i, n->edges[i]);
+		if(n->edges[i]->col == Gray){
+			printf("cycle: %p\n", n);
+			*cycle = 1;
+			return;
+		}
+		if(n->edges[i]->col == White){
+			dfs_visit(nodes, n->edges[i], cycle);
+		}
+	}
+
+	n->col = Black;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
