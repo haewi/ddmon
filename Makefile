@@ -1,5 +1,5 @@
 all:
-	gcc -o test1 test1.c -pthread
+	gcc -g -o test1 test1.c -pthread
 	gcc -o test2 test2.c -pthread
 	gcc -o test3 test3.c -pthread
 	gcc -shared -fPIC -o ddmon.so ddmon.c -ldl

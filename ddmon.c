@@ -8,10 +8,32 @@
 #include <sys/file.h>
 #include <fcntl.h>
 #include <unistd.h>
-
+#include <execinfo.h>
 
 int write_bytes(int fd, void * a, size_t len);
 
+void print_backtrace(){
+	printf("backtrace\n");
+	int nptrs;
+	void *buffer[10];
+	char ** str;
+
+	nptrs = backtrace(buffer, 10);
+
+	printf("backtrace() returned %d addresses\n", nptrs);
+
+	str = backtrace_symbols(buffer, nptrs);
+	if (str == NULL) {
+		perror("backtrace_symbols");
+		exit(EXIT_FAILURE);
+	}
+	
+	for (int j = 0; j < nptrs; j++)
+		printf("%s\n", str[j]);
+	
+	free(str);
+	printf("\n");
+}
 int pthread_mutex_lock(pthread_mutex_t *mutex){
 
 	// function pointer for pthread_mutex_lock()
@@ -24,6 +46,10 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 	if ((error = dlerror()) != 0x0) {
 		exit(1);
 	}
+
+	printf("\nddmon\n");
+	print_backtrace();
+	printf("ddmon\n\n");
 
 	// function pointer for pthread_self()
 	pthread_self = dlsym(RTLD_NEXT, "pthread_self");

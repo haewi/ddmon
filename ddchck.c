@@ -51,7 +51,7 @@ int main(int argc, char *argv[]){
 	}
 
 	/* ---------- parse commandline argument ----------*/
-	if(argc != 2) {
+/*	if(argc != 2) {
 		perror("[Error] no file input\n");
 		exit(1);
 	}
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]){
 			perror("system(command) error\n");
 		}
 	}
-
+*/
 	// init nodes (if mutex not held, it will be 0x0)
 	node ** nodes = (node**) malloc((NN + TN)*sizeof(node*));
 	for(int i = 0 ; i< NN+TN; i++){ // nodes for mutex
