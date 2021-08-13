@@ -170,13 +170,12 @@ long get_line(){
 
 	nptrs = backtrace(buffer, 10);
 
-	printf("backtrace() returned %d addresses\n", nptrs);
-
 	str = backtrace_symbols(buffer, nptrs);
 	if (str == NULL) {
 		perror("backtrace_symbols");
 		exit(EXIT_FAILURE);
 	}
+	//printf("%s\n", str[2]);
 
 	// find the address
 	int index = -1;
@@ -197,11 +196,9 @@ long get_line(){
 		address = strncat(address, &str[2][index], 1);
 	}
 	long line = strtol(address, NULL, 16);
-	printf("address: %s\n", address);
-	printf("line: %li\n", line);
+	printf("%s\n", str[2]);
 
 	free(str);
 	free(address);
-	printf("\n");
 	return line;
 }

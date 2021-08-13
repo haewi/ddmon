@@ -20,7 +20,8 @@ typedef struct Node{
 	long thread_id; // 0 means 'unknown'
 	color col;
 	struct Node ** edges;
-
+	long line; //for mutex nodes, 0 means 'unknown'
+	long lines[NN]; // for thread nodes, the line info that called the mutexes in the edges variable
 } node;
 
 
@@ -28,9 +29,11 @@ int read_bytes(int fd, void * a, int len);
 void init_node(node* n);
 void release_node(node* n);
 void print_graph(node ** nodes);
-void dfs(node ** nodes);
+void dfs(node ** nodes, char* filename);
 void dfs_visit(node ** nodes, node * n, int * cycle);
-void print_cycle(node ** nodes);
+void print_cycle(node ** nodes, char* filename);
+char* d2hex(long line);
+char* addr2line(long line, char* filename);
 
 int main(int argc, char *argv[]){
 
@@ -51,11 +54,11 @@ int main(int argc, char *argv[]){
 	}
 
 	/* ---------- parse commandline argument ----------*/
-/*	if(argc != 2) {
+	if(argc != 2) {
 		perror("[Error] no file input\n");
 		exit(1);
 	}
-	char * first = "LD_PRELOAD=\"./ddmon.so\" ./";
+/*	char * first = "LD_PRELOAD=\"./ddmon.so\" ./";
 	char * command = (char*) malloc((strlen(argv[1]) + strlen(first)) * sizeof(char));
 	strcat(command, first);
 	strcat(command, argv[1]);
@@ -102,6 +105,7 @@ int main(int argc, char *argv[]){
 		if(read_bytes(ddtrace, &line, sizeof(line)) != sizeof(line)){
 			perror("[Error] ddchck - read line\n");
 		}
+		
 
 		printf("\t| %d - %ld - %p - %li|\n\n", len, thread_id, mutex, line);
 
@@ -129,9 +133,10 @@ int main(int argc, char *argv[]){
 		// make all unknown nodes in the thread node to known
 		for(int i=NN; i< NN+TN; i++){
 			if(nodes[i] !=  0x0 && nodes[i]->thread_id == thread_id){ // find thread node
-				for(int j=0; j<NN; j++){ // for all nodes the thread node is  pointing
+				for(int j=0; j<NN; j++){ // for all nodes the thread node is pointing
 					if(nodes[i]->edges[j] != 0x0){
-						nodes[i]->edges[j]->thread_id = thread_id;
+						nodes[i]->edges[j]->thread_id = thread_id; // update id info
+						nodes[i]->edges[j]->line = nodes[i]->lines[j]; // update line info
 					}
 				}
 				break;
@@ -156,7 +161,7 @@ int main(int argc, char *argv[]){
 			printf("> lock executed\n");
 
 			int found=-1;
-			for(int i=0; i<NN+TN; i++){ 
+			for(int i=0; i<NN; i++){ 
 				if(nodes[i] != 0x0 && nodes[i]->mutex == mutex){ // if found node
 					found=i; // found the node
 					break;
@@ -171,6 +176,7 @@ int main(int argc, char *argv[]){
 				init_node(tmp);
 				tmp->mutex = mutex;
 				tmp->thread_id = thread_id;
+				tmp->line = line;
 
 				// add node to nodes variable
 				for(int i=0; i<NN; i++){
@@ -201,6 +207,9 @@ int main(int argc, char *argv[]){
 						if(nodes[i]->edges[j] == 0x0){ // add edge
 							//printf("nodes[%d]->edges[%d]\n", i, j);
 							nodes[i]->edges[j] = nodes[found];
+							if(i >= NN){ // thread node일때
+								nodes[i]->lines[j] = line;
+							}
 							break;
 						}
 					}
@@ -277,6 +286,7 @@ int main(int argc, char *argv[]){
 				printf("edges exists\n");
 				//printf("nodes[found]->thread_id = %lu\n", nodes[found]->thread_id);
 				nodes[found]->thread_id = 0;
+				nodes[found]->line = 0;
 				//printf("nodes[found]->thread_id = %lu\n", nodes[found]->thread_id);
 				for(int i=0; i<NN; i++){ // delete edges in the node
 					if(nodes[found]->edges[i] != 0x0){
@@ -294,7 +304,7 @@ int main(int argc, char *argv[]){
 		print_graph(nodes);
 
 		printf(" -------------------------- cycle detecting... --------------------------\n");
-		dfs(nodes);
+		dfs(nodes, argv[1]);
 
 
 	}
@@ -322,10 +332,12 @@ void init_node(node* n) {
 	n->mutex = 0x0;
 	n->thread_id = 0;
 	n->col = White;
+	n->line = 0;
 
 	n->edges = (node**) malloc(NN*sizeof(node*));
 	for(int i=0; i<NN; i++){
 		n->edges[i] = 0x0;
+		n->lines[i] = 0;
 	}
 }
 
@@ -347,7 +359,7 @@ void print_graph(node ** nodes) {
 	printf("|\n| --- mutex nodes info. ---\n|\n");
 	for(int i=0; i<NN; i++){
 		if(nodes[i] == 0x0) continue;
-		printf("| - node[%d]=%p -> mutex: %p - id: %lu\n", i, nodes[i], nodes[i]->mutex, nodes[i]->thread_id);
+		printf("| - node[%d]=%p -> mutex: %p - id: %lu - line: %li\n", i, nodes[i], nodes[i]->mutex, nodes[i]->thread_id, nodes[i]->line);
 		for(int j=0; j<NN; j++){
 			if(nodes[i]->edges[j] != 0x0){
 				printf("|   nodes[%d]->edges[%d] = %p\n", i, j, nodes[i]->edges[j]);
@@ -362,7 +374,7 @@ void print_graph(node ** nodes) {
 		printf("| - node[%d]=%p -> id: %lu\n", i, nodes[i], nodes[i]->thread_id);
 		for(int j=0; j<NN; j++){
 			if(nodes[i]->edges[j] != 0x0){
-				printf("|   nodes[%d]->edges[%d] = %p\n", i, j, nodes[i]->edges[j]);
+				printf("|   nodes[%d]->edges[%d] = %p - line: %li\n", i, j, nodes[i]->edges[j], nodes[i]->lines[j]);
 			}
 		}
 		printf("| \t --- edge printing done\n|\n");
@@ -375,7 +387,7 @@ void print_graph(node ** nodes) {
    1. make all color white
    2. for all nodes start dfs_visit
 */
-void dfs(node ** nodes){
+void dfs(node ** nodes, char* filename){
 
 	// make color white
 	for(int i=0; i<NN; i++){
@@ -392,7 +404,7 @@ void dfs(node ** nodes){
 		}
 		if(cycle == 1){
 			printf("\n\t\t-----------[CYCLE!!!!]-------------\n");
-			print_cycle(nodes);
+			print_cycle(nodes, filename);
 			printf("\n-------------------------------------------------------------------------\n\n");
 			exit(0);
 			return;
@@ -436,16 +448,92 @@ void dfs_visit(node ** nodes, node * n, int * cycle){
 	n->col = Black;
 }
 
-void print_cycle(node ** nodes){
+void print_cycle(node ** nodes, char* filename){
 	printf("\t\t-- Threads related to the Deadlock --\n");
-	for(int i=0; i<NN; i++){
+/*	for(int i=0; i<NN; i++){
 		if(nodes[i] == 0x0) continue;
 		if(nodes[i]->col == Gray){
-			printf("\tthread id: %lu - mutex address: %p\n", nodes[i]->thread_id, nodes[i]->mutex);
+			printf("\tthread id: %lu - mutex address: %p - line number: \n", nodes[i]->thread_id, nodes[i]->mutex);
+			printf("%s\n", d2hex(nodes[i]->line));
+		}
+	}*/
+
+	for(int i=NN; i<NN+TN; i++){ // for all thread nodes
+		if(nodes[i] == 0x0) continue;
+		for(int j=0; j<NN; j++){ // for all edges
+			if(nodes[i]->edges[j] == 0x0) continue;
+			if(nodes[i]->edges[j]->col == Gray){
+				//printf("nodes[%d]->lines[%d] = %li\n", i, j, nodes[i]->lines[j]);
+				printf("thread id: %lu - mutex address: %p - line number: %s\n", nodes[i]->edges[j]->thread_id, nodes[i]->edges[j]->mutex, addr2line(nodes[i]->lines[j], filename) );
+			}
 		}
 	}
 }
 
+char* d2hex(long line){
+	char* t_hex = (char*) malloc(sizeof(char)*100);
+	char* hex = (char*) malloc(sizeof(char)*100);
+	long quotient = line;
+	int temp, i=1;
+
+	while(quotient!=0) {
+		temp = quotient % 16;
+		//To convert integer into character
+		if( temp < 10)
+		           temp =temp + 48; else
+		         temp = temp + 55;
+		t_hex[i++]= temp;
+		quotient = quotient / 16;
+	}
+	hex[0]='0';
+	hex[1]='x';
+
+	for(int j=0; j<i; j++){
+		hex[j+2] = t_hex[i-1-j];
+	}
+	free(t_hex);
+	return hex;
+}
+
+char* addr2line(long line, char* filename){
+	char* hex = d2hex(line);
+	FILE *fp;
+	int status;
+	char path[200];
+
+	char* command = (char*) malloc(sizeof(char)*100);
+	char* addr = "addr2line -e ";
+	command = strcat(strcat(strcat(strcat(command, addr), filename), " "), hex);
+	//printf("command: %s\n", command);
+	
+	// execute addr2line
+	fp = popen(command, "r");
+	if(fp == 0x0){
+		perror("[Error] addr2line popen\n"); 
+	}
+	
+	// get result
+	if(fgets(path, 200, fp) == NULL){
+		perror("[Error] addr2line fgets\n");
+	}
+
+	free(command);
+	
+	// parse line number
+	char* li = (char*) malloc(sizeof(char)*10);
+	for(int i=0; i<strlen(path); i++){
+		if(path[i] == ':'){
+			for(int j=i+1; j<strlen(path)-1; j++){
+				li[j-i-1] = path[j];
+			}
+			break;
+		}
+	}
+	li[strlen(li)-1] -= 1;
+	//printf("li: %s strlen(li)=%ld\n", li, strlen(li));
+
+	return li;
+}
 
 
 
