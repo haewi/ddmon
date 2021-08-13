@@ -18,7 +18,6 @@ int write_bytes(int fd, void * a, size_t len);
 long get_line();
 
 int pthread_mutex_lock(pthread_mutex_t *mutex){
-
 	// function pointer for pthread_mutex_lock()
 	int (*mutex_lock)(pthread_mutex_t *mutex);
 	int (*mutex_unlock)(pthread_mutex_t *mutex);
@@ -26,6 +25,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 
 	char *error;
 	
+	// get original functions
 	mutex_lock = dlsym(RTLD_NEXT, "pthread_mutex_lock");
 	if ((error = dlerror()) != 0x0) {
 		exit(1);
@@ -34,8 +34,6 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 	if ((error = dlerror()) != 0x0) {
 		exit(1);
 	}
-
-	// function pointer for pthread_self()
 	pthread_self = dlsym(RTLD_NEXT, "pthread_self");
 	if ((error = dlerror()) != 0x0) {
 		exit(1);
@@ -51,7 +49,6 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 	int ddtrace = open(".ddtrace", O_WRONLY | O_SYNC);
 	if(ddtrace < 0)
 		fputs("[Error] ddmon - can't open .ddtrace\n", stderr);
-	//printf(" >> ddmon - open .ddtrace\n");
 
 	/* ---------- Write ----------*/
 	int len = 1; // lock
@@ -71,16 +68,11 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 		perror("[Error] ddmon - write line\n");
 	}
 	mutex_unlock(&m);
-
 	//printf("\tddmon - int: %d - id: %lu - lock: %p\n", len, thread_id, mutex);
 
 	close(ddtrace);
-	//printf(" >> ddmon - close .ddtrace\n");
 
-	int fd = mutex_lock(mutex);
-
-	return fd;
-
+	return mutex_lock(mutex);
 }
 
 int pthread_mutex_unlock(pthread_mutex_t *mutex){
@@ -196,9 +188,10 @@ long get_line(){
 		address = strncat(address, &str[2][index], 1);
 	}
 	long line = strtol(address, NULL, 16);
-	printf("%s\n", str[2]);
+	//printf("%s\n", str[2]);
 
 	free(str);
 	free(address);
 	return line;
 }
+
