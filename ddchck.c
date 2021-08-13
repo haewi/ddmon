@@ -87,6 +87,7 @@ int main(int argc, char *argv[]){
 		int len=-1;
 		long thread_id = -1;
 		pthread_mutex_t *mutex = 0x0;
+		long line =0;
 
 		// read info.
 		if(read_bytes(ddtrace, &len, sizeof(len)) != sizeof(len)) {
@@ -98,8 +99,11 @@ int main(int argc, char *argv[]){
 		if(read_bytes(ddtrace, &mutex, sizeof(mutex)) != sizeof(mutex)){
 			perror("[Error] ddchck - read mutex\n");
 		}
+		if(read_bytes(ddtrace, &line, sizeof(line)) != sizeof(line)){
+			perror("[Error] ddchck - read line\n");
+		}
 
-		printf("\t| %d - %ld - %p |\n\n", len, thread_id, mutex);
+		printf("\t| %d - %ld - %p - %li|\n\n", len, thread_id, mutex, line);
 
 		// make thread nodes
 		int none = -1;
