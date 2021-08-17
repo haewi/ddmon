@@ -300,7 +300,7 @@ void print_cycle(node ** nodes, char* filename){
 			if(nodes[i]->edges[j] == 0x0) continue;
 			if(nodes[i]->edges[j]->col == Gray){
 				//printf("nodes[%d]->lines[%d] = %li\n", i, j, nodes[i]->lines[j]);
-				printf("thread id: %lu - mutex address: %p - line number: %s\n", nodes[i]->edges[j]->thread_id, nodes[i]->edges[j]->mutex, addr2line(nodes[i]->lines[j], filename) );
+				printf("thread id: %lu - mutex address: %p - line number: %s\n", nodes[i]->thread_id, nodes[i]->edges[j]->mutex, addr2line(nodes[i]->lines[j], filename) );
 			}
 		}
 	}

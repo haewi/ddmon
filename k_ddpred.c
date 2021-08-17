@@ -46,6 +46,7 @@ void make_thread_nodes(node ** nodes, long thread_id);
 void unknown2known(node ** nodes, long thread_id);
 void lock(node ** nodes, pthread_mutex_t * mutex, long thread_id, long line);
 void unlock(node ** nodes, pthread_mutex_t * mutex, long thread_id, long line);
+int check_cycle(node ** nodes); // 1 is deadlock, 0 is false positive
 
 int main(int argc, char *argv[]){
 
@@ -251,7 +252,7 @@ void dfs(node ** nodes, char* filename){
 
 	// start dfs_visit
 	int cycle=0;
-	for(int i=0; i<NN+TN; i++){
+	for(int i=0; i<NN; i++){
 		if(nodes[i] == 0x0) continue;
 		if(nodes[i]->col == White){
 			dfs_visit(nodes, nodes[i], &cycle);
@@ -287,9 +288,10 @@ void dfs_visit(node ** nodes, node * n, int * cycle){
 		//printf("n->edges[%d]: %p\n", i, n->edges[i]);
 		if(n->edges[i]->col == Gray){
 			//printf("cycle: %p\n", n);
-			*cycle = 1;
-			
-			return;
+			if(check_cycle(nodes) == 1){	
+				*cycle = 1;
+				return;
+			}
 		}
 		if(n->edges[i]->col == White){
 			dfs_visit(nodes, n->edges[i], cycle);
@@ -317,8 +319,9 @@ void print_cycle(node ** nodes, char* filename){
 		for(int j=0; j<NN; j++){ // for all edges
 			if(nodes[i]->edges[j] == 0x0) continue;
 			if(nodes[i]->edges[j]->col == Gray){
+				printf("nodes[%d]->edges[%d] = %p\n", i, j, nodes[i]->edges[j]);
 				//printf("nodes[%d]->lines[%d] = %li\n", i, j, nodes[i]->lines[j]);
-				printf("thread id: %lu - mutex address: %p - line number: %s\n", nodes[i]->edges[j]->thread_id, nodes[i]->edges[j]->mutex, addr2line(nodes[i]->lines[j], filename) );
+				printf("thread id: %lu tried to lock mutex address: %p on line: %s\n", nodes[i]->thread_id, nodes[i]->edges[j]->mutex, addr2line(nodes[i]->lines[j], filename) );
 			}
 		}
 	}
@@ -494,22 +497,30 @@ void lock(node ** nodes, pthread_mutex_t * mutex, long thread_id, long line){
 
 		if(nodes[i]->thread_id == thread_id && i != found && nodes[i]->line != 0){ // with the same thread id
 			//printf("nodes[%d]->thread_id = %lu\n", i, nodes[i]->thread_id);
+			int have = 0;
 			for(int j=0; j<NN; j++){
 				if(nodes[i]->edges[j] == nodes[found]){ // already has an invalid edge
 					// make that edge valid
 					nodes[i]->threads[j] = thread_id;
 					nodes[i]->valid[j] = 1;
+					nodes[i]->lines[j] = line;
+					have = 1;
 					break;
 				}
-				if(nodes[i]->edges[j] == 0x0){ // add edge
-					//printf("nodes[%d]->edges[%d]\n", i, j);
-					nodes[i]->edges[j] = nodes[found];
-					nodes[i]->threads[j] = thread_id;
-					nodes[i]->valid[j] = 1;
-					if(i >= NN){ // thread node일때
+			}
+			if(have == 0){
+				for(int j=0; j<NN; j++){
+					if(nodes[i]->edges[j] == 0x0){ // add edge
+						//printf("nodes[%d]->edges[%d]\n", i, j);
+						nodes[i]->edges[j] = nodes[found];
+						nodes[i]->threads[j] = thread_id;
+						nodes[i]->valid[j] = 1;
 						nodes[i]->lines[j] = line;
+						if(i >= NN){ // thread node일때
+							nodes[i]->lines[j] = line;
+						}
+						break;
 					}
-					break;
 				}
 			}
 		}
@@ -574,6 +585,48 @@ void unlock(node ** nodes, pthread_mutex_t * mutex, long thread_id, long line){
 		//printf("nodes[found]->thread_id = %lu\n", nodes[found]->thread_id);
 	}
 }
+
+int check_cycle(node ** nodes){
+	long id = 0;
+	node* first_node = 0x0;
+	node* next = 0x0;
+
+	// find the first node that is gray
+	for(int i=0;i<NN; i++){
+		if(nodes[i] != 0x0 && nodes[i]->col == Gray){
+			// save the first node
+			first_node = nodes[i];
+			for(int j=0; j<NN; j++){
+				if(nodes[i]->edges[j] != 0x0 && nodes[i]->edges[j]->col == Gray){
+					// save the id of the edge and the next node
+					id = nodes[i]->threads[j];
+					next = nodes[i]->edges[j];
+					break;
+				}
+			}
+		}
+	}
+
+	while(first_node != next){
+		for(int i=0; i<NN; i++){ // for all edges in the next node
+			if(next->edges[i] != 0x0 && next->edges[i]->col == Gray){ // find the one that is Gray
+				if(id != next->threads[i]){ // if the edge id is different from the first edge id
+					return 1;// there is a deadlock
+				}
+				// else repeat the same process
+				next = next->edges[i];
+				break;
+			}
+		}
+	}
+	return 0;
+}
+
+
+
+
+
+
 
 
 
