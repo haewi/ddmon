@@ -34,10 +34,9 @@ typedef struct Node{
 
 pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
 node ** nodes = 0x0;
-char* filename = "test2";
 
-int write_bytes(int fd, void * a, size_t len);
 long get_line();
+char * get_filename();
 void init_graph();
 void make_thread_nodes(node ** nodes, long thread_id);
 void unknown2known(node ** nodes, long thread_id);
@@ -76,6 +75,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 	//printf("thread_id: %lu\tmutex: %p\n", pthread_self(), mutex);
 
 	long line = get_line(); // get backtrace info
+	char* filename = get_filename();
 	long thread_id = pthread_self();
 
 	mutex_lock(&m);
@@ -128,6 +128,7 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex){
 	}
 	
 	long line = get_line(); // get backtrace info
+	char* filename = get_filename();
 	long thread_id = pthread_self();
 
 	mutex_lock(&m);
@@ -154,19 +155,6 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex){
 	mutex_unlock(&m);
 
 	return mutex_unlock(mutex);
-}
-
-int write_bytes(int fd, void * a, size_t len) {
-    	char * s = (char *) a;
-
-    	int i=0;
-    	while(i < len) { // i : the length of successed message writing
-        	int b;
-        	b = write(fd, s + i, len - i);
-        	i += b;
-    	}
-
-    	return i;
 }
 
 long get_line(){
@@ -202,11 +190,37 @@ long get_line(){
 		address = strncat(address, &str[2][index], 1);
 	}
 	long line = strtol(address, NULL, 16);
-	//printf("%s\n", str[2]);
+	printf("%s\n", str[2]);
 
 	free(str);
 	free(address);
 	return line;
+}
+
+char * get_filename(){
+	int nptrs;
+	void *buffer[10];
+	char ** str;
+
+	nptrs = backtrace(buffer, 10);
+
+	str = backtrace_symbols(buffer, nptrs);
+	if (str == NULL) {
+		perror("backtrace_symbols");
+		exit(EXIT_FAILURE);
+	}
+	//printf("%s\n", str[2]);
+
+	// find the address
+	char* filename = (char*) malloc(sizeof(char)*100);
+	for(int i=0; i<strlen(str[2]); i++){
+		if(str[2][i] == 40){ // '+'
+			break;
+		}
+		filename = strncat(filename, &str[2][i], 1);
+	}
+	printf("filename: %s\n", filename);
+	return filename;
 }
 
 void init_graph(){

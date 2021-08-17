@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <pthread.h>
 
 #define NN 10 // maximum mutex number
 #define TN 10 // maximum thread number
@@ -22,12 +23,15 @@ typedef struct Node{
 	struct Node ** edges;
 	long line; //for mutex nodes, 0 means 'unknown'
 	long lines[NN]; // for thread nodes, the line info that called the mutexes in the edges variable
+	long threads[NN];
+	int valid[NN];
 } node;
 /*
 	RULE
 	the edges variable in the node structure points to the destination node (the edge is saved in the starting node)
  */
 
+pthread_mutex_t graph = PTHREAD_MUTEX_INITIALIZER;
 
 int read_bytes(int fd, void * a, int len);
 void init_node(node* n);
@@ -66,7 +70,8 @@ int main(int argc, char *argv[]){
 		perror("[Error] no file input\n");
 		exit(1);
 	}
-	char * first = "LD_PRELOAD=\"./ddmon.so\" ./";
+	/*
+	char * first = "LD_PRELOAD=\"./k_ddmon.so\" ./";
 	char * command = (char*) malloc((strlen(argv[1]) + strlen(first)) * sizeof(char));
 	strcat(command, first);
 	strcat(command, argv[1]);
@@ -84,10 +89,11 @@ int main(int argc, char *argv[]){
 		//execvp(myargs[0], myargs);
 		if(system(command) == -1){
 			perror("system(command) error\n");
+			n->threads[i] = 0;
 		}
 	}
 
-	free(command);
+	free(command);*/
 	
 	// init nodes (if mutex not held, it will be 0x0)
 	node ** nodes = (node**) malloc((NN + TN)*sizeof(node*));
@@ -98,7 +104,7 @@ int main(int argc, char *argv[]){
 	while(1){
 
 		int len=-1;
-		long thread_id = -1;
+		long thread_id = 0;
 		pthread_mutex_t *mutex = 0x0;
 		long line =0;
 
@@ -120,27 +126,37 @@ int main(int argc, char *argv[]){
 		printf("\t| %d - %ld - %p - %li|\n\n", len, thread_id, mutex, line);
 
 		// make thread nodes
+		pthread_mutex_lock(&graph);
 		make_thread_nodes(nodes, thread_id);
+		pthread_mutex_unlock(&graph);
 
 		// make all unknown nodes in the thread node to known
+		pthread_mutex_lock(&graph);
 		unknown2known(nodes, thread_id);
+		pthread_mutex_unlock(&graph);
 
 		// handle info.
 		if(len == 1) { // lock executed
 			printf("> lock executed\n");
+			pthread_mutex_lock(&graph);
 			lock(nodes, mutex, thread_id, line);
+			pthread_mutex_unlock(&graph);
 			
 		} // lock executed
-		else { // unlock executed
+		else{
 			printf("> unlock executed\n");
 			unlock(nodes, mutex, thread_id, line);
 		}
 		//printf("done\n");
 
+		pthread_mutex_lock(&graph);
 		print_graph(nodes);
+		pthread_mutex_unlock(&graph);
 
 		printf(" -------------------------- cycle detecting... --------------------------\n");
+		pthread_mutex_lock(&graph);
 		dfs(nodes, argv[1]);
+		pthread_mutex_unlock(&graph);
 
 
 	}
@@ -174,6 +190,8 @@ void init_node(node* n) {
 	for(int i=0; i<NN; i++){
 		n->edges[i] = 0x0;
 		n->lines[i] = 0;
+		n->threads[i] = 0;
+		n->valid[i] = 0;
 	}
 }
 
@@ -198,7 +216,7 @@ void print_graph(node ** nodes) {
 		printf("| - node[%d]=%p -> mutex: %p - id: %lu - line: %li\n", i, nodes[i], nodes[i]->mutex, nodes[i]->thread_id, nodes[i]->line);
 		for(int j=0; j<NN; j++){
 			if(nodes[i]->edges[j] != 0x0){
-				printf("|   nodes[%d]->edges[%d] = %p\n", i, j, nodes[i]->edges[j]);
+				printf("|   nodes[%d]->edges[%d] = %p - thread: %li - valid: %d\n", i, j, nodes[i]->edges[j], nodes[i]->threads[j], nodes[i]->valid[j]);
 			}
 		}
 		printf("| \t --- edge printing done\n|\n");
@@ -210,7 +228,7 @@ void print_graph(node ** nodes) {
 		printf("| - node[%d]=%p -> id: %lu\n", i, nodes[i], nodes[i]->thread_id);
 		for(int j=0; j<NN; j++){
 			if(nodes[i]->edges[j] != 0x0){
-				printf("|   nodes[%d]->edges[%d] = %p - line: %li\n", i, j, nodes[i]->edges[j], nodes[i]->lines[j]);
+				printf("|   nodes[%d]->edges[%d] = %p - threads: %li - line: %li - valid: %d\n", i, j, nodes[i]->edges[j], nodes[i]->threads[j],  nodes[i]->lines[j], nodes[i]->valid[j]);
 			}
 		}
 		printf("| \t --- edge printing done\n|\n");
@@ -387,6 +405,7 @@ void make_thread_nodes(node ** nodes, long thread_id){
 				nodes[i] = (node*) malloc(sizeof(node));
 				init_node(nodes[i]);
 				nodes[i]->thread_id = thread_id; // and fill it
+				nodes[i]->line = 1;
 				break;
 			}
 		}
@@ -397,7 +416,7 @@ void unknown2known(node ** nodes, long thread_id){
 	for(int i=NN; i< NN+TN; i++){
 		if(nodes[i] !=  0x0 && nodes[i]->thread_id == thread_id){ // find thread node
 			for(int j=0; j<NN; j++){ // for all nodes the thread node is pointing
-				if(nodes[i]->edges[j] != 0x0){
+				if(nodes[i]->edges[j] != 0x0 && nodes[i]->valid[j] == 1 && nodes[i]->edges[j]->line == 0){
 					nodes[i]->edges[j]->thread_id = thread_id; // update id info
 					nodes[i]->edges[j]->line = nodes[i]->lines[j]; // update line info
 				}
@@ -445,6 +464,24 @@ void lock(node ** nodes, pthread_mutex_t * mutex, long thread_id, long line){
 	}
 	else {
 		printf(">> found node\n");
+		if(nodes[found]->line != 0){ // 0 means that another thread wanted it
+			int taken = 0;
+			for(int i=NN; i<NN+TN; i++){
+				if(nodes[i] != 0x0 && nodes[i]->thread_id != thread_id) { // other thread nodes
+					for(int j=0; j<NN; j++){
+						// have valid edges pointing to the found node
+						if(nodes[i]->valid[j] == 1 && nodes[i]->edges[j] != 0x0 && nodes[i]->edges[j] == nodes[found]){
+							taken = 1;
+							break;
+						}
+					}
+				}
+			}
+			if(taken == 0){ // no other thread wants the node
+				nodes[found]->thread_id = thread_id;
+				nodes[found]->line = line;
+			}
+		}
 	}
 
 	// add edges
@@ -455,12 +492,20 @@ void lock(node ** nodes, pthread_mutex_t * mutex, long thread_id, long line){
 		}
 		// existing node & not itself
 
-		if(nodes[i]->thread_id == thread_id && i != found){ // with the same thread id
+		if(nodes[i]->thread_id == thread_id && i != found && nodes[i]->line != 0){ // with the same thread id
 			//printf("nodes[%d]->thread_id = %lu\n", i, nodes[i]->thread_id);
 			for(int j=0; j<NN; j++){
+				if(nodes[i]->edges[j] == nodes[found]){ // already has an invalid edge
+					// make that edge valid
+					nodes[i]->threads[j] = thread_id;
+					nodes[i]->valid[j] = 1;
+					break;
+				}
 				if(nodes[i]->edges[j] == 0x0){ // add edge
 					//printf("nodes[%d]->edges[%d]\n", i, j);
 					nodes[i]->edges[j] = nodes[found];
+					nodes[i]->threads[j] = thread_id;
+					nodes[i]->valid[j] = 1;
 					if(i >= NN){ // thread node일때
 						nodes[i]->lines[j] = line;
 					}
@@ -496,58 +541,37 @@ void unlock(node ** nodes, pthread_mutex_t * mutex, long thread_id, long line){
 	}
 	//printf("found: %d\n", found);
 
-	// 2.
+	// make all edges in the found node invalid
+	for(int i=0; i<NN; i++){
+		nodes[found]->valid[i] = 0;
+	}
 
-	printf("-----------------delete same thread edges-------------------\n");
-	for(int i=0; i< NN+TN; i++){
-		if(nodes[i]!=0x0 && nodes[i]->thread_id == thread_id){
+	// make all edges to the found node from the same thread id nodes invalid
+	for(int i=0; i<NN+TN; i++){
+		if(nodes[i] != 0x0 && nodes[i]->thread_id == thread_id){
 			for(int j=0; j<NN; j++){
 				if(nodes[i]->edges[j] == nodes[found]){
-					//printf("nodes[found]: %p - mutex: %p - id: %lu\n", nodes[found], nodes[found]->mutex, nodes[found]->thread_id);
-					//printf("nodes[i]->edges[j]: %p\n", nodes[i]->edges[j]);
-					//printf("nodes[found]: %p - mutex: %p - id: %lu\n", nodes[found], nodes[found]->mutex, nodes[found]->thread_id);
-					nodes[i]->edges[j] = 0x0;
-					break;
+					nodes[i]->valid[j] = 0;
 				}
 			}
 		}
 	}
-	//nodes[found]->mutex = mutex;
-	//printf(" <> nodes[found]->mutex: %p - id: %lu\n", nodes[found]->mutex, nodes[found]->thread_id);
 
-	// 3.
-	int exist = 0;
+	int exist = -1;
 	for(int i=NN; i< NN+TN; i++){
-		if(nodes[i] != 0x0){ // other thread id nodes
-			for(int j=0; j<NN; j++){
-				if(nodes[i]->edges[j] != 0x0 && nodes[i]->edges[j] == nodes[found]){
-					exist = 1; // edge exists
-					//printf("node[%d]->thread_id = %lu\n", i, nodes[i]->thread_id);
+		if(nodes[i] != 0x0 && nodes[i]->thread_id != thread_id){ // other thread nodes
+			for(int j=0; j<NN; j++){ // have valid edge pointing to the found node
+				if(nodes[i]->valid[j] == 1 && nodes[i]->edges[j] != 0x0 && nodes[i]->edges[j] == nodes[found]){
+					exist = i;
 					break;
 				}
 			}
 		}
 	}
-	
-	if(exist == 0){
-		release_node(nodes[found]);
-		nodes[found]=0x0;
-	}
-	else{
-		printf("edges exists\n");
-		//printf("nodes[found]->thread_id = %lu\n", nodes[found]->thread_id);
-		nodes[found]->thread_id = 0;
+	if(exist != -1){
+		//nodes[found]->thread_id = 0;
 		nodes[found]->line = 0;
 		//printf("nodes[found]->thread_id = %lu\n", nodes[found]->thread_id);
-		for(int i=0; i<NN; i++){ // delete edges in the node
-			if(nodes[found]->edges[i] != 0x0){
-				//printf("1. nodex[%d]->edges[%d]->mutex = %p\n", found, i, nodes[found]->edges[i]->mutex);
-				//pthread_mutex_t * t = nodes[found]->edges[i]->mutex;
-				//nodes[found]->edges[i]->mutex = t;
-				nodes[found]->edges[i] = 0x0;
-				//printf("2. nodex[%d]->edges[%d]->mutex = %p\n", found, i, nodes[found]->edges[i]->mutex);
-			}
-		}
 	}
 }
 

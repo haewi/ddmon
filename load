@@ -1,2 +1,3 @@
-LD_PRELOAD="./ddmon.so" ./test1
 LD_PRELOAD="./ddmon.so" ./test2
+LD_PRELOAD="./one_ddmon.so" ./test2
+LD_PRELOAD="./pred_ddmon.so" ./test2
