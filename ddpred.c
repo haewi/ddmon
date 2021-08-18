@@ -76,8 +76,8 @@ int main(int argc, char *argv[]){
 		perror("[Error] no file input\n");
 		exit(1);
 	}
-	/*
-	char * first = "LD_PRELOAD=\"./k_ddmon.so\" ./";
+/*
+	char * first = "LD_PRELOAD=\"./pred_ddmon.so\" ./";
 	char * command = (char*) malloc((strlen(argv[1]) + strlen(first)) * sizeof(char));
 	strcat(command, first);
 	strcat(command, argv[1]);
@@ -95,12 +95,11 @@ int main(int argc, char *argv[]){
 		//execvp(myargs[0], myargs);
 		if(system(command) == -1){
 			perror("system(command) error\n");
-			n->threads[i] = 0;
 		}
 	}
 
-	free(command);*/
-	
+	free(command);
+*/
 	// init nodes (if mutex not held, it will be 0x0)
 	node ** nodes = (node**) malloc((NN + TN)*sizeof(node*));
 	for(int i = 0 ; i< NN+TN; i++){ // nodes for mutex

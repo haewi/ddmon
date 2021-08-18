@@ -68,7 +68,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex){
 		perror("[Error] ddmon - write line\n");
 	}
 	mutex_unlock(&m);
-	printf("\tddmon - int: %d - id: %lu - lock: %p - line: %li\n", len, thread_id, mutex, line);
+	//printf("\tddmon - int: %d - id: %lu - lock: %p - line: %li\n", len, thread_id, mutex, line);
 
 	close(ddtrace);
 
@@ -129,7 +129,7 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex){
 	}
 	mutex_unlock(&m);
 
-	printf("\tddmon - int: %d - id: %lu - lock: %p - line: %li\n", len, thread_id, mutex, line);
+	//printf("\tddmon - int: %d - id: %lu - lock: %p - line: %li\n", len, thread_id, mutex, line);
 
 	int fd = mutex_unlock(mutex);
 

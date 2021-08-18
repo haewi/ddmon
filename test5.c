@@ -3,7 +3,7 @@
 #include <pthread.h>
 #include <unistd.h>
 
-int ex = 0;
+int ex = 1;
 // 0 : Not a deadlock but must be predicted
 // 1 : Gatelock, Not a deadlock and must not be predicetd/
 // 2 : Deadlock
