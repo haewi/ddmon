@@ -6,7 +6,7 @@
 int ex = 0;
 // 0 : Not a deadlock but must be predicted
 // 1 : Gatelock, Not a deadlock and must not be predicetd/
-// 2 : Daedlock
+// 2 : Deadlock
 
 pthread_mutex_t m[5];
 

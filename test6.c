@@ -1,4 +1,5 @@
-//Single cycle case 2
+// Single cycle case 2
+// No deadlock
 
 
 #include<stdio.h>
